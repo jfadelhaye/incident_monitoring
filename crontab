@@ -1,0 +1,3 @@
+# crontab
+0 * * * * cd /app && python collector.py >> /var/log/collector.log 2>&1
+

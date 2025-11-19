@@ -1,7 +1,49 @@
-from flask import Flask, request, Response
-import requests
+# app.py
+import sqlite3
+from datetime import datetime, timedelta, timezone
+
+from flask import Flask, Response, jsonify
+
+from config import DB_PATH, SOURCE_COLORS
+from collector import update_feeds
 
 app = Flask(__name__)
+
+
+def get_events_from_db(hours: int = 24) -> list[dict]:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    cutoff_iso = cutoff.isoformat()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        cur = conn.execute(
+            """
+            SELECT source, title, link, description, pub_date
+            FROM events
+            WHERE pub_date >= ?
+            ORDER BY pub_date ASC
+            """,
+            (cutoff_iso,),
+        )
+        rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    events: list[dict] = []
+    for row in rows:
+        source = row["source"]
+        events.append(
+            {
+                "source": source,
+                "title": row["title"],
+                "link": row["link"],
+                "description": row["description"],
+                "pub_date": row["pub_date"],
+                "color": SOURCE_COLORS.get(source, "#555555"),
+            }
+        )
+    return events
 
 
 INDEX_HTML = """
@@ -37,15 +79,37 @@ INDEX_HTML = """
       padding: 1.5rem;
     }
 
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
     h1 {
       font-size: 1.4rem;
-      margin-bottom: 0.5rem;
     }
 
     #status-summary {
       font-size: 0.9rem;
       color: var(--text-muted);
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    button#refresh-btn {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    button#refresh-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     .legend {
@@ -156,15 +220,24 @@ INDEX_HTML = """
       body {
         padding: 1rem;
       }
+
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Service Status Timeline (Last 24 hours)</h1>
-  <div id="status-summary">
-    Aggregating incidents & maintenance from GitHub, Docker, and Cloudflare
-    status pages (RSS).
-  </div>
+  <header>
+    <div>
+      <h1>Service Status Timeline (Last 24 hours)</h1>
+      <div id="status-summary">
+        Aggregating incidents & maintenance from GitHub, Docker, and Cloudflare status pages (via SQLite cache).
+      </div>
+    </div>
+    <button id="refresh-btn">Refresh now</button>
+  </header>
 
   <div class="legend">
     <span class="legend-item">
@@ -183,115 +256,11 @@ INDEX_HTML = """
   </div>
 
   <script>
-    // --- CONFIG -------------------------------------------------------------
-
-    const FEEDS = [
-      {
-        name: "GitHub",
-        url: "https://www.githubstatus.com/history.rss",
-        color: "var(--github)",
-      },
-      {
-        name: "Docker",
-        url: "https://www.dockerstatus.com/pages/533c6539221ae15e3f000031/rss",
-        color: "var(--docker)",
-      },
-      {
-        name: "Cloudflare",
-        url: "https://www.cloudflarestatus.com/history.rss",
-        color: "var(--cloudflare)",
-      },
-    ];
-
-    // Our own Flask proxy
-    const PROXY_BASE = "/proxy?url=";
-
-    // Time window (ms) – last 24h
-    const WINDOW_MS = 24 * 60 * 60 * 1000;
-
-    // --- HELPERS -----------------------------------------------------------
-
-    function proxiedUrl(url) {
-      return PROXY_BASE + encodeURIComponent(url);
-    }
-
-    function parseDateFromItem(item) {
-      const fields = ["pubDate", "updated", "published", "dc\\\\:date", "date"];
-      for (const name of fields) {
-        const el = item.querySelector(name);
-        if (el && el.textContent.trim()) {
-          const d = new Date(el.textContent.trim());
-          if (!isNaN(d.getTime())) return d;
-        }
-      }
-      return null;
-    }
-
-    function getText(el) {
-      return el ? el.textContent.trim() : "";
-    }
-
-    function stripHtml(str) {
-      return str.replace(/<[^>]*>/g, "");
-    }
-
     function truncate(str, max) {
+      if (!str) return "";
       if (str.length <= max) return str;
       return str.slice(0, max - 1).trimEnd() + "…";
     }
-
-    // --- RSS FETCH & PARSE -------------------------------------------------
-
-    async function fetchFeed(feed) {
-      const response = await fetch(proxiedUrl(feed.url));
-      if (!response.ok) {
-        throw new Error("HTTP " + response.status + " for " + feed.name);
-      }
-      const text = await response.text();
-
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(text, "application/xml");
-
-      let items = Array.from(xmlDoc.querySelectorAll("item"));
-      if (!items.length) {
-        // Atom fallback
-        items = Array.from(xmlDoc.querySelectorAll("entry"));
-      }
-
-      const events = [];
-
-      for (const item of items) {
-        const title = getText(item.querySelector("title")) || "(no title)";
-        const linkEl = item.querySelector("link");
-        let link = "";
-        if (linkEl) {
-          link = linkEl.getAttribute("href") || getText(linkEl);
-        }
-
-        const descEl =
-          item.querySelector("description") ||
-          item.querySelector("summary") ||
-          item.querySelector("content");
-        let description = descEl ? descEl.textContent : "";
-        description = stripHtml(description).trim();
-
-        const date = parseDateFromItem(item);
-        if (!date) continue; // skip items without valid date
-
-        events.push({
-          source: feed.name,
-          color: feed.color,
-          title,
-          link,
-          description,
-          date,
-        });
-      }
-
-      return events;
-    }
-
-    // --- RENDERING ---------------------------------------------------------
 
     function renderTimeline(events) {
       const timelineEl = document.getElementById("timeline");
@@ -313,7 +282,7 @@ INDEX_HTML = """
 
         const dot = document.createElement("div");
         dot.className = "timeline-dot";
-        dot.style.borderColor = ev.color;
+        dot.style.borderColor = ev.color || "#555555";
 
         const card = document.createElement("div");
         card.className = "timeline-card";
@@ -323,11 +292,12 @@ INDEX_HTML = """
 
         const timeSpan = document.createElement("span");
         timeSpan.className = "timeline-time";
-        timeSpan.textContent = ev.date.toLocaleString();
+        const d = new Date(ev.pub_date);
+        timeSpan.textContent = d.toLocaleString();
 
         const srcSpan = document.createElement("span");
         srcSpan.className = "timeline-source";
-        srcSpan.style.color = ev.color;
+        srcSpan.style.color = ev.color || "#555555";
         srcSpan.textContent = ev.source;
 
         meta.appendChild(timeSpan);
@@ -366,50 +336,47 @@ INDEX_HTML = """
       timelineEl.appendChild(fragment);
     }
 
-    function renderError(error) {
+    async function loadEvents() {
       const timelineEl = document.getElementById("timeline");
-      timelineEl.innerHTML = "";
-      const msg = document.createElement("div");
-      msg.className = "error-message";
-      msg.textContent =
-        "Error while loading feeds: " + (error && error.message
-          ? error.message
-          : String(error));
-      timelineEl.appendChild(msg);
-    }
-
-    // --- MAIN --------------------------------------------------------------
-
-    (async function main() {
-      const now = new Date();
-      const cutoff = new Date(now.getTime() - WINDOW_MS);
-      const cutafter = new Date(now.getTime());
+      timelineEl.innerHTML = "<div class='empty-message'>Loading…</div>";
 
       try {
-        const allEventsArrays = await Promise.all(
-          FEEDS.map((feed) =>
-            fetchFeed(feed).catch((err) => {
-              console.error("Failed to fetch feed", feed.name, err);
-              return []; // ignore failing feed, keep others
-            })
-          )
-        );
-
-        let events = allEventsArrays.flat();
-
-        // Filter for last 24h
-        events = events.filter((ev) => ev.date >= cutoff);
-        events = events.filter((ev) => ev.date < cutafter);
-
-        // Sort chronologically (newest at top)
-        events.sort((a, b) => b.date - a.date);
-
-        renderTimeline(events);
-      } catch (err) {
-        console.error(err);
-        renderError(err);
+        const res = await fetch("/api/events");
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+        const data = await res.json();
+        renderTimeline(data);
+      } catch (e) {
+        console.error(e);
+        timelineEl.innerHTML =
+          "<div class='error-message'>Error loading events: " + e.message + "</div>";
       }
-    })();
+    }
+
+    async function manualRefresh() {
+      const btn = document.getElementById("refresh-btn");
+      btn.disabled = true;
+      btn.textContent = "Refreshing…";
+
+      try {
+        const res = await fetch("/refresh", { method: "POST" });
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+        await loadEvents();
+      } catch (e) {
+        alert("Refresh failed: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Refresh now";
+      }
+    }
+
+    document.getElementById("refresh-btn").addEventListener("click", manualRefresh);
+
+    // initial load
+    loadEvents();
   </script>
 </body>
 </html>
@@ -418,40 +385,22 @@ INDEX_HTML = """
 
 @app.route("/")
 def index():
-    # Serve the HTML directly from the string to keep everything in one file
     return Response(INDEX_HTML, mimetype="text/html")
 
 
-@app.route("/proxy")
-def proxy():
-    """
-    Very small server-side proxy to bypass CORS issues.
+@app.get("/api/events")
+def api_events():
+    events = get_events_from_db(hours=24)
+    return jsonify(events)
 
-    Usage: GET /proxy?url=<encoded RSS URL>
-    """
-    url = request.args.get("url")
-    if not url:
-        return Response("Missing 'url' parameter", status=400)
 
-    try:
-        # You can add small hardening here if you like:
-        # - restrict to known domains
-        # - check scheme, etc.
-        resp = requests.get(url, timeout=10)
-    except requests.RequestException as e:
-        return Response(f"Error fetching URL: {e}", status=502)
-
-    # Pass through content with permissive CORS
-    flask_resp = Response(
-        resp.content,
-        status=resp.status_code,
-        mimetype=resp.headers.get("Content-Type", "application/xml"),
-    )
-    flask_resp.headers["Access-Control-Allow-Origin"] = "*"
-    return flask_resp
+@app.post("/refresh")
+def refresh():
+    # Trigger the collector manually
+    update_feeds()
+    return jsonify({"status": "ok"})
 
 
 if __name__ == "__main__":
-    # Simple dev server
     app.run(host="0.0.0.0", port=5000, debug=True)
 

@@ -1,23 +1,24 @@
-# Use a small Python base image
 FROM python:3.12-slim
 
-# Don't write .pyc files, and unbuffer stdout (nice for logs)
+# Install cron
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends cron && \
+    rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Create a working directory
 WORKDIR /app
 
-# Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy our app code
-COPY app.py .
+# App code
+COPY app.py collector.py config.py crontab entrypoint.sh /app/
 
-# Expose Flask port
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 5000
 
-# Default command: run the Flask app
-CMD ["python", "app.py"]
+CMD ["/app/entrypoint.sh"]
 
