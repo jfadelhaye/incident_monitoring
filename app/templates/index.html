@@ -40,6 +40,13 @@
       margin-bottom: 0.75rem;
     }
 
+    .header-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.25rem;
+    }
+
     h1 {
       font-size: 1.4rem;
     }
@@ -62,6 +69,12 @@
     button#refresh-btn:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+
+    #last-update {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: right;
     }
 
     .legend {
@@ -214,7 +227,10 @@
         Aggregating incidents & maintenance from various services status pages.
       </div>
     </div>
-    <button id="refresh-btn">Refresh now</button>
+    <div class="header-controls">
+      <button id="refresh-btn">Refresh now</button>
+      <div id="last-update">Loading...</div>
+    </div>
   </header>
 
   <div class="legend">
@@ -234,6 +250,26 @@
       if (!str) return "";
       if (str.length <= max) return str;
       return str.slice(0, max - 1).trimEnd() + "…";
+    }
+
+    function formatTimeAgo(isoString) {
+      if (!isoString) return "Never";
+      
+      const now = new Date();
+      const past = new Date(isoString);
+      const diffMs = now - past;
+      
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffMinutes < 1) return "Just now";
+      if (diffMinutes < 60) return `${diffMinutes}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      
+      // For older dates, show the actual date
+      return past.toLocaleDateString();
     }
 
     function renderTimeline(events) {
@@ -319,6 +355,20 @@
       timelineEl.appendChild(fragment);
     }
 
+    async function loadLastUpdate() {
+      try {
+        const res = await fetch("/api/last-update");
+        if (res.ok) {
+          const data = await res.json();
+          const lastUpdateEl = document.getElementById("last-update");
+          lastUpdateEl.textContent = `Last update: ${formatTimeAgo(data.last_update)}`;
+        }
+      } catch (e) {
+        console.error("Failed to load last update time:", e);
+        document.getElementById("last-update").textContent = "Last update: Unknown";
+      }
+    }
+
     async function loadEvents() {
       const timelineEl = document.getElementById("timeline");
       timelineEl.innerHTML = "<div class='empty-message'>Loading…</div>";
@@ -330,6 +380,7 @@
         }
         const data = await res.json();
         renderTimeline(data);
+        loadLastUpdate();
       } catch (e) {
         console.error(e);
         timelineEl.innerHTML =
@@ -360,6 +411,9 @@
 
     // initial load
     loadEvents();
+    
+    // Update the "time ago" display every minute
+    setInterval(loadLastUpdate, 60000);
   </script>
 
   <footer>
