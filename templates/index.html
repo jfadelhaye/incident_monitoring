@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Status Timeline - Last 24h</title>
+  <link rel="shortcut icon" href="{{ url_for('static', filename='dead_docker.png') }}">
+  <title>Status Timeline - Last 48h</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
@@ -13,6 +14,8 @@
       --border: #dddddd;
       --github: #24292e;
       --docker: #0db7ed;
+      --linear: #717ce1;
+      --notion: #6f6f6f;
       --cloudflare: #f38020;
     }
 
@@ -199,6 +202,12 @@
     </span>
     <span class="legend-item">
       <span class="legend-dot" style="background: var(--cloudflare);"></span>Cloudflare
+    </span>
+    <span class="legend-item">
+      <span class="legend-dot" style="background: var(--linear);"></span>Linear
+    </span>
+    <span class="legend-item">
+      <span class="legend-dot" style="background: var(--notion);"></span>Notion
     </span>
   </div>
 
