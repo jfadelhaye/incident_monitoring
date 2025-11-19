@@ -317,15 +317,16 @@ INDEX_HTML = """
           titleDiv.textContent = ev.title;
         }
 
-        const descP = document.createElement("p");
-        descP.className = "timeline-description";
-        descP.textContent = truncate(ev.description || "", 280);
+        const descDiv = document.createElement("div");
+		descDiv.className = "timeline-description";
+		// ev.description is HTML from the RSS; render it as HTML
+		descDiv.innerHTML = ev.description || "";
 
-        card.appendChild(meta);
-        card.appendChild(titleDiv);
-        if (ev.description) {
-          card.appendChild(descP);
-        }
+		card.appendChild(meta);
+		card.appendChild(titleDiv);
+		if (ev.description) {
+  			card.appendChild(descDiv);
+		}
 
         item.appendChild(dot);
         item.appendChild(card);
