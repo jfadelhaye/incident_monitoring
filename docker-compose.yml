@@ -1,0 +1,7 @@
+services:
+  status-timeline:
+    build: .
+    container_name: status-timeline
+    ports:
+      - "5042:5042"
+    restart: unless-stopped

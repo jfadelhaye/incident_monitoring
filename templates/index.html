@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Status Timeline - Last 24h</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --card-bg: #ffffff;
+      --text-main: #222222;
+      --text-muted: #555555;
+      --border: #dddddd;
+      --github: #24292e;
+      --docker: #0db7ed;
+      --cloudflare: #f38020;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      padding: 1.5rem;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+    }
+
+    #status-summary {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    button#refresh-btn {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    button#refresh-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    #timeline-container {
+      max-width: 800px;
+      margin: 0.5rem auto 0;
+      position: relative;
+    }
+
+    #timeline {
+      border-left: 2px solid var(--border);
+      padding-left: 1.5rem;
+      position: relative;
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: -7px;
+      top: 0.6rem;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 3px solid var(--border);
+    }
+
+    .timeline-card {
+      background: var(--card-bg);
+      border-radius: 6px;
+      padding: 0.75rem 0.9rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    .timeline-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      margin-bottom: 0.35rem;
+      color: var(--text-muted);
+    }
+
+    .timeline-source {
+      font-weight: 600;
+    }
+
+    .timeline-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .timeline-title a {
+      color: inherit;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+    }
+
+    .timeline-title a:hover {
+      border-bottom-color: currentColor;
+    }
+
+    .timeline-description {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      white-space: pre-line;
+    }
+
+    .empty-message,
+    .error-message {
+      padding: 0.6rem 0.8rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .error-message {
+      color: #b00020;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+      }
+
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Service Status Timeline (Last 48 hours)</h1>
+      <div id="status-summary">
+        Aggregating incidents & maintenance from GitHub, Docker, and Cloudflare status pages (via SQLite cache).
+      </div>
+    </div>
+    <button id="refresh-btn">Refresh now</button>
+  </header>
+
+  <div class="legend">
+    <span class="legend-item">
+      <span class="legend-dot" style="background: var(--github);"></span>GitHub
+    </span>
+    <span class="legend-item">
+      <span class="legend-dot" style="background: var(--docker);"></span>Docker
+    </span>
+    <span class="legend-item">
+      <span class="legend-dot" style="background: var(--cloudflare);"></span>Cloudflare
+    </span>
+  </div>
+
+  <div id="timeline-container">
+    <div id="timeline"></div>
+  </div>
+
+  <script>
+    function truncate(str, max) {
+      if (!str) return "";
+      if (str.length <= max) return str;
+      return str.slice(0, max - 1).trimEnd() + "…";
+    }
+
+    function renderTimeline(events) {
+      const timelineEl = document.getElementById("timeline");
+      timelineEl.innerHTML = "";
+
+      if (!events.length) {
+        const msg = document.createElement("div");
+        msg.className = "empty-message";
+        msg.textContent = "No incidents or maintenance events in the last 24 hours.";
+        timelineEl.appendChild(msg);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+
+      for (const ev of events) {
+        const item = document.createElement("div");
+        item.className = "timeline-item";
+
+        const dot = document.createElement("div");
+        dot.className = "timeline-dot";
+        dot.style.borderColor = ev.color || "#555555";
+
+        const card = document.createElement("div");
+        card.className = "timeline-card";
+
+        const meta = document.createElement("div");
+        meta.className = "timeline-meta";
+
+        const timeSpan = document.createElement("span");
+        timeSpan.className = "timeline-time";
+        const d = new Date(ev.pub_date);
+        timeSpan.textContent = d.toLocaleString();
+
+        const srcSpan = document.createElement("span");
+        srcSpan.className = "timeline-source";
+        srcSpan.style.color = ev.color || "#555555";
+        srcSpan.textContent = ev.source;
+
+        meta.appendChild(timeSpan);
+        meta.appendChild(srcSpan);
+
+        const titleDiv = document.createElement("div");
+        titleDiv.className = "timeline-title";
+
+        if (ev.link) {
+          const a = document.createElement("a");
+          a.href = ev.link;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = ev.title;
+          titleDiv.appendChild(a);
+        } else {
+          titleDiv.textContent = ev.title;
+        }
+
+        const descDiv = document.createElement("div");
+		descDiv.className = "timeline-description";
+		// ev.description is HTML from the RSS; render it as HTML
+		descDiv.innerHTML = ev.description || "";
+
+		card.appendChild(meta);
+		card.appendChild(titleDiv);
+		if (ev.description) {
+  			card.appendChild(descDiv);
+		}
+
+        item.appendChild(dot);
+        item.appendChild(card);
+
+        fragment.appendChild(item);
+      }
+
+      timelineEl.appendChild(fragment);
+    }
+
+    async function loadEvents() {
+      const timelineEl = document.getElementById("timeline");
+      timelineEl.innerHTML = "<div class='empty-message'>Loading…</div>";
+
+      try {
+        const res = await fetch("/api/events");
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+        const data = await res.json();
+        renderTimeline(data);
+      } catch (e) {
+        console.error(e);
+        timelineEl.innerHTML =
+          "<div class='error-message'>Error loading events: " + e.message + "</div>";
+      }
+    }
+
+    async function manualRefresh() {
+      const btn = document.getElementById("refresh-btn");
+      btn.disabled = true;
+      btn.textContent = "Refreshing…";
+
+      try {
+        const res = await fetch("/refresh", { method: "POST" });
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+        await loadEvents();
+      } catch (e) {
+        alert("Refresh failed: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Refresh now";
+      }
+    }
+
+    document.getElementById("refresh-btn").addEventListener("click", manualRefresh);
+
+    // initial load
+    loadEvents();
+  </script>
+</body>
+</html>
