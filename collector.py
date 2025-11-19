@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree as ET
 
@@ -124,6 +124,20 @@ def fetch_feed(feed) -> list[dict]:
     return events
 
 
+def cleanup_old_events(conn: sqlite3.Connection) -> None:
+    """Remove events older than 7 days based on pub_date."""
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff_iso = cutoff_date.isoformat()
+    
+    cursor = conn.execute(
+        "DELETE FROM events WHERE pub_date < ?",
+        (cutoff_iso,)
+    )
+    deleted_count = cursor.rowcount
+    if deleted_count > 0:
+        print(f"[collector] Cleaned up {deleted_count} events older than 7 days")
+
+
 def update_feeds() -> None:
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -159,6 +173,10 @@ def update_feeds() -> None:
                     # don't kill the whole run on a bad row
                     print(f"[collector] Insert error for {feed['name']}: {e}")
 
+        conn.commit()
+        
+        # Clean up old events after successful feed update
+        cleanup_old_events(conn)
         conn.commit()
     finally:
         conn.close()
