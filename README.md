@@ -1,6 +1,6 @@
 # Incident Checker
 
-![logo](app/static/favicon.ico)
+![logo](app/static/favicon.png)
 
 A Python Flask web application that aggregates and displays service status incidents from various tech companies' RSS feeds. Monitor incidents and maintenance windows from GitHub, Docker, Cloudflare, Linear, and Notion in a unified timeline interface.
 
