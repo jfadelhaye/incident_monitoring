@@ -14,8 +14,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # App code
-COPY app.py collector.py config.py crontab entrypoint.sh ./
-COPY templates/ ./templates/
+COPY run.py crontab entrypoint.sh ./
+COPY app/ ./app/
 
 RUN chmod +x /app/entrypoint.sh
 

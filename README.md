@@ -1,6 +1,6 @@
 # Incident Checker
 
-![Timeline Screenshot](templates/dead_docker.png)
+![Timeline Screenshot](app/templates/dead_docker.png)
 
 A Python Flask web application that aggregates and displays service status incidents from various tech companies' RSS feeds. Monitor incidents and maintenance windows from GitHub, Docker, Cloudflare, Linear, and Notion in a unified timeline interface.
 
@@ -26,7 +26,11 @@ A Python Flask web application that aggregates and displays service status incid
 ### Running from Docker Hub
 
 ```bash
-docker run -p 5042:5042 judelhaye/incident-checker:latest
+# With persistent database storage
+docker run -p 5042:5042 -v incident_data:/app/events.db judelhaye/incident-checker:latest
+
+# Or using a bind mount to current directory
+docker run -p 5042:5042 -v $(pwd)/data:/app judelhaye/incident-checker:latest
 ```
 
 ### Using Docker Compose
@@ -39,6 +43,8 @@ docker-compose up
 
 The application will be available at http://localhost:5042
 
+Docker Compose automatically creates a named volume `incident_data` to persist the SQLite database across container recreations.
+
 ### Local Development
 
 ```bash
@@ -46,18 +52,18 @@ The application will be available at http://localhost:5042
 pip install -r requirements.txt
 
 # Run initial feed collection
-python collector.py
+python -m app.services.collector
 
 # Start the Flask application
-python app.py
+python run.py
 ```
 
 Visit http://localhost:5042 to view the timeline.
 
 ## Architecture
 
-- **Flask Web Server** (`app.py`): Serves the timeline interface and provides API endpoints
-- **Feed Collector** (`collector.py`): Fetches RSS feeds and stores incidents in SQLite
+- **Flask Web Server** (`run.py` + `app/`): Serves the timeline interface and provides API endpoints
+- **Feed Collector** (`app/services/collector.py`): Fetches RSS feeds and stores incidents in SQLite
 - **SQLite Database** (`events.db`): Stores incident data with deduplication
 - **Responsive Frontend**: Single-page timeline with embedded JavaScript
 - **Automated Collection**: Hourly cron job updates incident data
@@ -66,19 +72,16 @@ Visit http://localhost:5042 to view the timeline.
 
 ### Adding New Status Feeds
 
-Edit `config.py` to add new RSS feeds:
+Edit `app/config.py` to add new RSS feeds:
 
 ```python
 FEEDS = [
     {
         "name": "Service Name",
         "url": "https://status.example.com/history.rss",
+        "color": "#ff5733",  # Custom color for timeline
     }
 ]
-
-SOURCE_COLORS = {
-    "Service Name": "#ff5733",  # Custom color for timeline
-}
 ```
 
 ## API Endpoints
@@ -94,11 +97,17 @@ SOURCE_COLORS = {
 
 ```
 .
-├── app.py                 # Flask web application
-├── collector.py           # RSS feed collector
-├── config.py              # Service URLs and configuration
-├── templates/
-│   └── index.html         # Timeline interface
+├── run.py                 # Application entry point
+├── app/
+│   ├── __init__.py        # Flask app factory
+│   ├── config.py          # Service URLs and configuration
+│   ├── models.py          # Database functions
+│   ├── routes.py          # Route handlers (Blueprint-based)
+│   ├── services/
+│   │   └── collector.py   # RSS feed collector
+│   ├── static/            # Static files
+│   └── templates/
+│       └── index.html     # Timeline interface
 ├── docker-compose.yml     # Deployment compose file
 ├── Dockerfile             # Container build configuration
 ├── requirements.txt       # Python dependencies
@@ -126,7 +135,14 @@ Events are automatically deduplicated using a unique index on `(source, guid)`.
 
 ### Customization
 
-- **Styling**: Modify CSS in `templates/index.html`
-- **Feed Sources**: Update `config.py` to add/remove status feeds
+- **Styling**: Modify CSS in `app/templates/index.html`
+- **Feed Sources**: Update `app/config.py` to add/remove status feeds
 - **Collection Schedule**: Edit `crontab` to change collection frequency
 - **Time Window**: Adjust the hours parameter in API endpoints
+
+### Manual Feed Collection
+
+```bash
+# Run feed collection manually
+python -m app.services.collector
+```

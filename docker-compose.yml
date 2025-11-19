@@ -4,4 +4,9 @@ services:
     image: judelhaye/incident-checker:latest
     ports:
       - "5042:5042"
+    volumes:
+      - incident_data:/app/events.db
     restart: unless-stopped
+
+volumes:
+  incident_data:

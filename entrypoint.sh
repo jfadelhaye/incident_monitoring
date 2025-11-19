@@ -12,8 +12,8 @@ crontab /app/crontab
 cron
 
 # Run one collection on startup so DB isn't empty
-python /app/collector.py
+python -m app.services.collector
 
 # Run Flask app (foreground)
-python /app/app.py
+python /app/run.py
 

@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 
 import requests
 
-from config import FEEDS, DB_PATH
+from app.config import FEEDS, DB_PATH
 
 def init_db(conn: sqlite3.Connection) -> None:
     conn.execute(
