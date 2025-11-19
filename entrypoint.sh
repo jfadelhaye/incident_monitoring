@@ -19,6 +19,6 @@ cron
 # Run one collection on startup so DB isn't empty
 python /app/run_collector.py
 
-# Run Flask app (foreground)
-python /app/run.py
+# Run Flask app with Gunicorn (foreground)
+gunicorn -c /app/gunicorn.conf.py run:app
 
