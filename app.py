@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from flask import Flask, Response, jsonify, render_template
 
-from config import DB_PATH, SOURCE_COLORS
+from config import DB_PATH, FEEDS
 from collector import update_feeds
 
 app = Flask(__name__)
@@ -14,6 +14,8 @@ def get_events_from_db(hours: int = 24) -> list[dict]:
     cutoff_iso = cutoff.isoformat()
     cutafter_iso = datetime.now(timezone.utc).isoformat()
 
+    # Create color lookup from FEEDS
+    feed_colors = {feed["name"]: feed["color"] for feed in FEEDS}
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -42,14 +44,14 @@ def get_events_from_db(hours: int = 24) -> list[dict]:
                 "link": row["link"],
                 "description": row["description"],
                 "pub_date": row["pub_date"],
-                "color": SOURCE_COLORS.get(source, "#555555"),
+                "color": feed_colors.get(source, "#555555"),
             }
         )
     return events
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", feeds=FEEDS)
 
 @app.get("/api/events")
 def api_events():

@@ -12,11 +12,9 @@
       --text-main: #222222;
       --text-muted: #555555;
       --border: #dddddd;
-      --github: #24292e;
-      --docker: #0db7ed;
-      --linear: #717ce1;
-      --notion: #6f6f6f;
-      --cloudflare: #f38020;
+      {% for feed in feeds -%}
+      --{{ feed.name.lower() }}: {{ feed.color }};
+      {% endfor %}
     }
 
     * {
@@ -202,21 +200,11 @@
   </header>
 
   <div class="legend">
+    {% for feed in feeds %}
     <span class="legend-item">
-      <span class="legend-dot" style="background: var(--github);"></span>GitHub
+      <span class="legend-dot" style="background: var(--{{ feed.name.lower() }});"></span>{{ feed.name }}
     </span>
-    <span class="legend-item">
-      <span class="legend-dot" style="background: var(--docker);"></span>Docker
-    </span>
-    <span class="legend-item">
-      <span class="legend-dot" style="background: var(--cloudflare);"></span>Cloudflare
-    </span>
-    <span class="legend-item">
-      <span class="legend-dot" style="background: var(--linear);"></span>Linear
-    </span>
-    <span class="legend-item">
-      <span class="legend-dot" style="background: var(--notion);"></span>Notion
-    </span>
+    {% endfor %}
   </div>
 
   <div id="timeline-container">
