@@ -9,7 +9,6 @@ from collector import update_feeds
 
 app = Flask(__name__)
 
-
 def get_events_from_db(hours: int = 24) -> list[dict]:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     cutoff_iso = cutoff.isoformat()

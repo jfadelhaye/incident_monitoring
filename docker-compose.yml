@@ -1,7 +1,7 @@
 services:
-  status-timeline:
-    build: .
-    container_name: status-timeline
+  incident-checker:
+    container_name: incident-checker
+    image: judelhaye/incident-checker:latest
     ports:
       - "5042:5042"
     restart: unless-stopped

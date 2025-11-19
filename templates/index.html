@@ -122,6 +122,14 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     }
 
+    .timeline-card.resolved {
+      border-top: 3px solid #28a745;
+    }
+
+    .timeline-card.unresolved {
+      border-top: 3px solid #fd7e14;
+    }
+
     .timeline-meta {
       display: flex;
       flex-wrap: wrap;
@@ -246,6 +254,14 @@
 
         const card = document.createElement("div");
         card.className = "timeline-card";
+        
+        // Check if incident is resolved
+        const description = (ev.description || "").toLowerCase();
+        if (description.includes("resolved") || description.includes("completed")) {
+          card.classList.add("resolved");
+        } else {
+          card.classList.add("unresolved");
+        }
 
         const meta = document.createElement("div");
         meta.className = "timeline-meta";
