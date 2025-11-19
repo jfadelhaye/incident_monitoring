@@ -5,7 +5,7 @@ services:
     ports:
       - "5042:5042"
     volumes:
-      - incident_data:/app/events.db
+      - incident_data:/app/data
     restart: unless-stopped
 
 volumes:

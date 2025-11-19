@@ -1,7 +1,8 @@
 import os
 
-# Use absolute path that aligns with Docker volume mapping
-DB_PATH = "/app/events.db" if os.path.exists("/app") else "events.db"
+# Use data directory for volume mounting
+DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
+DB_PATH = os.path.join(DATA_DIR, "events.db")
 
 FEEDS =  [
     {

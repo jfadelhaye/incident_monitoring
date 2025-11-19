@@ -4,4 +4,9 @@ services:
     container_name: status-timeline
     ports:
       - "5042:5042"
+    volumes:
+      - incident_data:/app/data
     restart: unless-stopped
+
+volumes:
+  incident_data:
