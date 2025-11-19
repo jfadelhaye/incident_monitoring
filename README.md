@@ -1,6 +1,6 @@
 # Incident Checker
 
-![Timeline Screenshot](app/static/dead_docker.png)
+![logo](app/static/favicon.ico)
 
 A Python Flask web application that aggregates and displays service status incidents from various tech companies' RSS feeds. Monitor incidents and maintenance windows from GitHub, Docker, Cloudflare, Linear, and Notion in a unified timeline interface.
 
