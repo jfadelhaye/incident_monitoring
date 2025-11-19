@@ -40,3 +40,15 @@ def get_events_from_db(hours: int = 24) -> list[dict]:
             }
         )
     return events
+
+def get_last_update_time() -> str | None:
+    """Get the timestamp of the most recent database update (created_at)."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cur = conn.execute(
+            "SELECT MAX(created_at) as last_update FROM events"
+        )
+        row = cur.fetchone()
+        return row[0] if row and row[0] else None
+    finally:
+        conn.close()
