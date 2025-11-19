@@ -176,6 +176,24 @@
       color: #b00020;
     }
 
+    footer {
+      margin-top: 2rem;
+      text-align: center;
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 1rem;
@@ -343,5 +361,13 @@
     // initial load
     loadEvents();
   </script>
+
+  <footer>
+    <p>
+      <a href="https://github.com/jfadelhaye/incident_monitoring" target="_blank" rel="noopener noreferrer">
+        View on GitHub
+      </a>
+    </p>
+  </footer>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # Incident Checker
 
-![Timeline Screenshot](app/templates/dead_docker.png)
+![Timeline Screenshot](app/static/dead_docker.png)
 
 A Python Flask web application that aggregates and displays service status incidents from various tech companies' RSS feeds. Monitor incidents and maintenance windows from GitHub, Docker, Cloudflare, Linear, and Notion in a unified timeline interface.
 
@@ -27,23 +27,33 @@ A Python Flask web application that aggregates and displays service status incid
 
 ```bash
 # With persistent database storage
-docker run -p 5042:5042 -v incident_data:/app/events.db judelhaye/incident-checker:latest
+docker run -p 5042:5042 -v incident_data:/app/data judelhaye/incident-checker:latest
 
 # Or using a bind mount to current directory
-docker run -p 5042:5042 -v $(pwd)/data:/app judelhaye/incident-checker:latest
+docker run -p 5042:5042 -v $(pwd)/data:/app/data judelhaye/incident-checker:latest
 ```
 
 ### Using Docker Compose
 
 ```bash
-git clone <repository-url>
-cd incident_checker
+git clone https://github.com/jfadelhaye/incident_monitoring.git
+cd incident_monitoring
 docker-compose up
 ```
 
 The application will be available at http://localhost:5042
 
-Docker Compose automatically creates a named volume `incident_data` to persist the SQLite database across container recreations.
+**Docker Compose Features:**
+- Automatically creates a named volume `incident_data` to persist the SQLite database across container recreations
+- Database is stored in `/app/data/events.db` inside the container
+- Hourly automated feed collection via cron
+- Container restarts automatically unless manually stopped
+
+**For development:**
+```bash
+# Use the development compose file for local builds
+docker-compose -f docker-compose-dev.yml up --build
+```
 
 ### Local Development
 
@@ -52,7 +62,7 @@ Docker Compose automatically creates a named volume `incident_data` to persist t
 pip install -r requirements.txt
 
 # Run initial feed collection
-python -m app.services.collector
+python run_collector.py
 
 # Start the Flask application
 python run.py
@@ -144,5 +154,5 @@ Events are automatically deduplicated using a unique index on `(source, guid)`.
 
 ```bash
 # Run feed collection manually
-python -m app.services.collector
+python run_collector.py
 ```
