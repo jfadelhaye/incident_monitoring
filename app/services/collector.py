@@ -182,5 +182,9 @@ def update_feeds() -> None:
         conn.close()
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for running collector as a module."""
     update_feeds()
+
+if __name__ == "__main__":
+    main()

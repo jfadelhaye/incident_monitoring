@@ -1,4 +1,7 @@
-DB_PATH = "events.db"
+import os
+
+# Use absolute path that aligns with Docker volume mapping
+DB_PATH = "/app/events.db" if os.path.exists("/app") else "events.db"
 
 FEEDS =  [
     {
