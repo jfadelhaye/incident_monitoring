@@ -90,6 +90,17 @@
       gap: 0.4rem;
       font-size: 0.85rem;
       color: var(--text-muted);
+      transition: all 0.3s ease;
+    }
+
+    .legend-item.has-incident {
+      background: rgba(253, 126, 20, 0.1);
+      border: 1px solid rgba(253, 126, 20, 0.3);
+      border-radius: 6px;
+      padding: 0.3rem 0.5rem;
+      font-weight: 600;
+      color: var(--text-main);
+      box-shadow: 0 0 10px rgba(253, 126, 20, 0.2);
     }
 
     .legend-dot {
@@ -235,7 +246,7 @@
 
   <div class="legend">
     {% for feed in feeds %}
-    <span class="legend-item">
+    <span class="legend-item" id="legend-{{ feed.name.lower().replace(' ', '-') }}">
       <span class="legend-dot" style="background: var(--{{ feed.name.lower() }});"></span>{{ feed.name }}
     </span>
     {% endfor %}
@@ -272,9 +283,37 @@
       return past.toLocaleDateString();
     }
 
+    function updateLegendHighlighting(events) {
+      // Clear existing highlighting
+      document.querySelectorAll('.legend-item').forEach(item => {
+        item.classList.remove('has-incident');
+      });
+      
+      // Track providers with ongoing incidents
+      const providersWithIncidents = new Set();
+      
+      for (const ev of events) {
+        const description = (ev.description || "").toLowerCase();
+        if (!description.includes("resolved") && !description.includes("completed")) {
+          providersWithIncidents.add(ev.source.toLowerCase().replace(' ', '-'));
+        }
+      }
+      
+      // Apply highlighting to providers with ongoing incidents
+      providersWithIncidents.forEach(provider => {
+        const legendItem = document.getElementById(`legend-${provider}`);
+        if (legendItem) {
+          legendItem.classList.add('has-incident');
+        }
+      });
+    }
+
     function renderTimeline(events) {
       const timelineEl = document.getElementById("timeline");
       timelineEl.innerHTML = "";
+      
+      // Update legend highlighting based on current events
+      updateLegendHighlighting(events);
 
       if (!events.length) {
         const msg = document.createElement("div");
