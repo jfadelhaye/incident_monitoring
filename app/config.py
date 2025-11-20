@@ -1,7 +1,8 @@
 import os
 
 # Use data directory for volume mounting
-DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
+# Default to local 'data' directory when not in Docker
+DATA_DIR = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "data"))
 DB_PATH = os.path.join(DATA_DIR, "events.db")
 
 FEEDS =  [
@@ -29,6 +30,11 @@ FEEDS =  [
         "name": "Notion",
         "url": "https://www.notion-status.com/history.rss",
         "color": "#6f6f6f",
+    },
+    {
+        "name": "Hetzner",
+        "url": "https://status.hetzner.com/en.atom",
+        "color": "#d50000",
     }
 ]
 
