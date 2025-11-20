@@ -69,41 +69,104 @@ def fetch_feed(feed) -> list[dict]:
     xml = resp.content
     root = ET.fromstring(xml)
 
-    items = root.findall(".//item")
-    if not items:
-        items = root.findall(".//{*}entry")
+    # Check if this is an RSS feed or Atom feed
+    is_atom = root.tag.endswith('}feed') or root.tag == 'feed'
+    
+    if is_atom:
+        # Atom feeds use <entry> elements
+        items = root.findall(".//{http://www.w3.org/2005/Atom}entry")
+        if not items:
+            items = root.findall(".//entry")  # fallback for feeds without namespace
+    else:
+        # RSS feeds use <item> elements
+        items = root.findall(".//item")
 
     events: list[dict] = []
 
     for item in items:
-        title = (item.findtext("title") or "").strip()
+        # Handle titles differently for RSS vs Atom
+        if is_atom:
+            title = (
+                item.findtext("{http://www.w3.org/2005/Atom}title")
+                or item.findtext("title")
+                or ""
+            ).strip()
+        else:
+            title = (item.findtext("title") or "").strip()
+        
         if not title:
             title = "(no title)"
+        
+        # Handle links differently for RSS vs Atom
         link = ""
-        link_el = item.find("link")
-        if link_el is not None:
-            link = (link_el.get("href") or link_el.text or "").strip()
-        description = (
-            item.findtext("description")
-            or item.findtext("summary")
-            or item.findtext("content")
-            or ""
-        ).strip()
-        guid = (
-            (item.findtext("guid") or "").strip()
-            or (item.findtext("id") or "").strip()
-            or link
-            or (title + "|no-guid")
-        )
+        if is_atom:
+            # Atom feeds store links in <link href="..."/> attributes
+            link_el = item.find("{http://www.w3.org/2005/Atom}link")
+            if link_el is None:
+                link_el = item.find("link")
+            if link_el is not None:
+                link = (link_el.get("href") or "").strip()
+        else:
+            # RSS feeds store links in text content of <link> element
+            link_el = item.find("link")
+            if link_el is not None:
+                link = (link_el.text or "").strip()
+        
+        # Handle content/description differently for RSS vs Atom
+        if is_atom:
+            # Atom feeds use <content> and sometimes have XHTML content
+            content_el = item.find("{http://www.w3.org/2005/Atom}content")
+            summary_el = item.find("{http://www.w3.org/2005/Atom}summary")
+            if content_el is None:
+                content_el = item.find("content")
+            if summary_el is None:
+                summary_el = item.find("summary")
+                
+            if content_el is not None:
+                # Handle XHTML content by extracting text from nested elements
+                if content_el.get("type") == "xhtml":
+                    # Get all text content from XHTML div
+                    description = "".join(content_el.itertext()).strip()
+                else:
+                    description = (content_el.text or "").strip()
+            elif summary_el is not None:
+                description = (summary_el.text or "").strip()
+            else:
+                description = ""
+        else:
+            # RSS feeds use <description>
+            description = (item.findtext("description") or "").strip()
+        
+        # Handle GUID/ID differently for RSS vs Atom
+        if is_atom:
+            atom_id = (
+                item.findtext("{http://www.w3.org/2005/Atom}id")
+                or item.findtext("id")
+                or ""
+            ).strip()
+            guid = atom_id or link or (title + "|no-guid")
+        else:
+            guid = (
+                (item.findtext("guid") or "").strip()
+                or link
+                or (title + "|no-guid")
+            )
 
-        raw_date = (
-            item.findtext("pubDate")
-            or item.findtext("updated")
-            or item.findtext("published")
-            or item.findtext("dc:date")
-            or item.findtext("{*}updated")
-            or item.findtext("{*}published")
-        )
+        # Handle dates - both formats can use updated/published
+        if is_atom:
+            raw_date = (
+                item.findtext("{http://www.w3.org/2005/Atom}updated")
+                or item.findtext("{http://www.w3.org/2005/Atom}published")
+                or item.findtext("updated")
+                or item.findtext("published")
+            )
+        else:
+            raw_date = (
+                item.findtext("pubDate")
+                or item.findtext("dc:date")
+                or item.findtext("updated")
+                or item.findtext("published")
+            )
 
         dt = parse_date(raw_date) if raw_date else None
         if dt is None:
