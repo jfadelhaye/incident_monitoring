@@ -53,20 +53,33 @@ function renderTimeline(events) {
   const timelineEl = document.getElementById("timeline");
   timelineEl.innerHTML = "";
   
+  // Apply provider filter if active
+  let filteredEvents = events;
+  if (activeProviderFilter) {
+    filteredEvents = events.filter(event => {
+      const eventProvider = event.source.toLowerCase().replace(' ', '-');
+      return eventProvider === activeProviderFilter;
+    });
+  }
+  
   // Update legend highlighting based on current events
   updateLegendHighlighting(events);
 
-  if (!events.length) {
+  if (!filteredEvents.length) {
     const msg = document.createElement("div");
     msg.className = "empty-message";
-    msg.textContent = "No incidents or maintenance events in the last 24 hours.";
+    if (activeProviderFilter) {
+      msg.textContent = "No incidents found for the selected provider.";
+    } else {
+      msg.textContent = "No incidents or maintenance events in the last 24 hours.";
+    }
     timelineEl.appendChild(msg);
     return;
   }
 
   const fragment = document.createDocumentFragment();
 
-  for (const ev of events) {
+  for (const ev of filteredEvents) {
     const item = document.createElement("div");
     item.className = "timeline-item";
 
@@ -159,6 +172,7 @@ async function loadEvents() {
       throw new Error("HTTP " + res.status);
     }
     const data = await res.json();
+    allEvents = data; // Store for filtering
     renderTimeline(data);
     loadLastUpdate();
   } catch (e) {
@@ -187,9 +201,68 @@ async function manualRefresh() {
   }
 }
 
+// Filter state management
+let activeProviderFilter = null;
+let allEvents = [];
+
+function setProviderFilter(provider) {
+  activeProviderFilter = provider;
+  renderTimeline(allEvents);
+  updateLegendFilterStates();
+}
+
+function clearProviderFilter() {
+  activeProviderFilter = null;
+  renderTimeline(allEvents);
+  updateLegendFilterStates();
+}
+
+function updateLegendFilterStates() {
+  document.querySelectorAll('.legend-item').forEach(item => {
+    item.classList.remove('active', 'filtered');
+    
+    if (activeProviderFilter) {
+      const provider = item.id.replace('legend-', '');
+      if (provider === activeProviderFilter) {
+        item.classList.add('active');
+      } else {
+        item.classList.add('filtered');
+      }
+    }
+  });
+  
+  // Show/hide the "Show All" button
+  const showAllBtn = document.getElementById('show-all-btn');
+  if (activeProviderFilter) {
+    showAllBtn.style.display = 'inline-block';
+  } else {
+    showAllBtn.style.display = 'none';
+  }
+}
+
+function setupLegendClickHandlers() {
+  document.querySelectorAll('.legend-item').forEach(item => {
+    item.addEventListener('click', function() {
+      const provider = this.id.replace('legend-', '');
+      
+      if (activeProviderFilter === provider) {
+        // Click on already active filter - clear it
+        clearProviderFilter();
+      } else {
+        // Set new filter
+        setProviderFilter(provider);
+      }
+    });
+  });
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById("refresh-btn").addEventListener("click", manualRefresh);
+  document.getElementById("show-all-btn").addEventListener("click", clearProviderFilter);
+  
+  // Setup legend click handlers
+  setupLegendClickHandlers();
   
   // Initial load
   loadEvents();

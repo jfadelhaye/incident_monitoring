@@ -46,7 +46,8 @@ h1 {
   margin-bottom: 0.5rem;
 }
 
-button#refresh-btn {
+button#refresh-btn,
+button#show-all-btn {
   padding: 0.35rem 0.75rem;
   font-size: 0.85rem;
   border-radius: 4px;
@@ -58,6 +59,17 @@ button#refresh-btn {
 button#refresh-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+button#show-all-btn {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+button#show-all-btn:hover {
+  background: #0056b3;
+  border-color: #0056b3;
 }
 
 #last-update {
@@ -80,6 +92,14 @@ button#refresh-btn:disabled {
   font-size: 0.85rem;
   color: var(--text-muted);
   transition: all 0.3s ease;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  user-select: none;
+}
+
+.legend-item:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .legend-item.has-incident {
@@ -90,6 +110,19 @@ button#refresh-btn:disabled {
   font-weight: 600;
   color: var(--text-main);
   box-shadow: 0 0 10px rgba(253, 126, 20, 0.2);
+}
+
+.legend-item.filtered {
+  background: var(--border);
+  color: #999;
+  opacity: 0.5;
+}
+
+.legend-item.active {
+  background: rgba(0, 123, 255, 0.1);
+  border: 1px solid rgba(0, 123, 255, 0.3);
+  color: var(--text-main);
+  font-weight: 600;
 }
 
 .legend-dot {
