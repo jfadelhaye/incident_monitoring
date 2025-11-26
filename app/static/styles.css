@@ -47,7 +47,8 @@ h1 {
 }
 
 button#refresh-btn,
-button#show-all-btn {
+button#show-all-btn,
+button#ongoing-filter-btn {
   padding: 0.35rem 0.75rem;
   font-size: 0.85rem;
   border-radius: 4px;
@@ -70,6 +71,17 @@ button#show-all-btn {
 button#show-all-btn:hover {
   background: #0056b3;
   border-color: #0056b3;
+}
+
+button#ongoing-filter-btn.active {
+  background: #fd7e14;
+  color: white;
+  border-color: #fd7e14;
+}
+
+button#ongoing-filter-btn.active:hover {
+  background: #e66b02;
+  border-color: #e66b02;
 }
 
 #last-update {

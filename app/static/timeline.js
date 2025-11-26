@@ -53,13 +53,20 @@ function renderTimeline(events) {
   const timelineEl = document.getElementById("timeline");
   timelineEl.innerHTML = "";
   
-  // Apply provider filter if active
+  // Apply filters
   let filteredEvents = events;
+  
+  // Apply provider filter if active
   if (activeProviderFilter) {
-    filteredEvents = events.filter(event => {
+    filteredEvents = filteredEvents.filter(event => {
       const eventProvider = event.source.toLowerCase().replace(' ', '-');
       return eventProvider === activeProviderFilter;
     });
+  }
+  
+  // Apply ongoing filter if active
+  if (ongoingOnlyFilter) {
+    filteredEvents = filteredEvents.filter(event => isOngoingIncident(event));
   }
   
   // Update legend highlighting based on current events
@@ -68,11 +75,17 @@ function renderTimeline(events) {
   if (!filteredEvents.length) {
     const msg = document.createElement("div");
     msg.className = "empty-message";
-    if (activeProviderFilter) {
+    
+    if (activeProviderFilter && ongoingOnlyFilter) {
+      msg.textContent = "No ongoing incidents found for the selected provider.";
+    } else if (activeProviderFilter) {
       msg.textContent = "No incidents found for the selected provider.";
+    } else if (ongoingOnlyFilter) {
+      msg.textContent = "No ongoing incidents found.";
     } else {
       msg.textContent = "No incidents or maintenance events in the last 24 hours.";
     }
+    
     timelineEl.appendChild(msg);
     return;
   }
@@ -203,21 +216,43 @@ async function manualRefresh() {
 
 // Filter state management
 let activeProviderFilter = null;
+let ongoingOnlyFilter = false;
 let allEvents = [];
+
+function isOngoingIncident(event) {
+  const description = (event.description || "").toLowerCase();
+  return !description.includes("resolved") && 
+         !description.includes("completed") && 
+         !description.includes("scheduled");
+}
 
 function setProviderFilter(provider) {
   activeProviderFilter = provider;
   renderTimeline(allEvents);
-  updateLegendFilterStates();
+  updateFilterStates();
 }
 
 function clearProviderFilter() {
   activeProviderFilter = null;
   renderTimeline(allEvents);
-  updateLegendFilterStates();
+  updateFilterStates();
 }
 
-function updateLegendFilterStates() {
+function toggleOngoingFilter() {
+  ongoingOnlyFilter = !ongoingOnlyFilter;
+  renderTimeline(allEvents);
+  updateFilterStates();
+}
+
+function clearAllFilters() {
+  activeProviderFilter = null;
+  ongoingOnlyFilter = false;
+  renderTimeline(allEvents);
+  updateFilterStates();
+}
+
+function updateFilterStates() {
+  // Update legend states
   document.querySelectorAll('.legend-item').forEach(item => {
     item.classList.remove('active', 'filtered');
     
@@ -231,9 +266,17 @@ function updateLegendFilterStates() {
     }
   });
   
+  // Update ongoing filter button
+  const ongoingBtn = document.getElementById('ongoing-filter-btn');
+  if (ongoingOnlyFilter) {
+    ongoingBtn.classList.add('active');
+  } else {
+    ongoingBtn.classList.remove('active');
+  }
+  
   // Show/hide the "Show All" button
   const showAllBtn = document.getElementById('show-all-btn');
-  if (activeProviderFilter) {
+  if (activeProviderFilter || ongoingOnlyFilter) {
     showAllBtn.style.display = 'inline-block';
   } else {
     showAllBtn.style.display = 'none';
@@ -259,7 +302,8 @@ function setupLegendClickHandlers() {
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById("refresh-btn").addEventListener("click", manualRefresh);
-  document.getElementById("show-all-btn").addEventListener("click", clearProviderFilter);
+  document.getElementById("show-all-btn").addEventListener("click", clearAllFilters);
+  document.getElementById("ongoing-filter-btn").addEventListener("click", toggleOngoingFilter);
   
   // Setup legend click handlers
   setupLegendClickHandlers();
