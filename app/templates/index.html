@@ -294,7 +294,7 @@
       
       for (const ev of events) {
         const description = (ev.description || "").toLowerCase();
-        if (!description.includes("resolved") && !description.includes("completed")) {
+        if (!description.includes("resolved") && !description.includes("completed") && !description.includes("scheduled")) {
           providersWithIncidents.add(ev.source.toLowerCase().replace(' ', '-'));
         }
       }
@@ -338,7 +338,7 @@
         
         // Check if incident is resolved
         const description = (ev.description || "").toLowerCase();
-        if (description.includes("resolved") || description.includes("completed")) {
+        if (description.includes("resolved") || description.includes("completed") || description.includes("scheduled")) {
           card.classList.add("resolved");
         } else {
           card.classList.add("unresolved");
